@@ -75,6 +75,12 @@
 #define PHYS_ADDR_DUCATI_MEM	(PHYS_ADDR_SMC_MEM - PHYS_ADDR_DUCATI_SIZE - \
 				OMAP_ION_HEAP_SECURE_INPUT_SIZE)
 #define HDMI_GPIO_HPD  63 /* Hotplug detect */
+#define GPIO_WIFI_PMENA		54
+#define GPIO_WIFI_IRQ		53
+#define OMAP_HDMI_HPD_ADDR	0x4A100098
+#define OMAP_HDMI_PULLTYPE_MASK	0x00000010
+
+#define OMAP4SDP_MDM_PWR_EN_GPIO	157
 
 static const int sdp4430_keymap[] = {
 	KEY(0, 0, KEY_E),
@@ -878,7 +884,7 @@ static void __init omap_4430sdp_reserve(void)
 	memblock_remove(PHYS_ADDR_DUCATI_MEM, PHYS_ADDR_DUCATI_SIZE);
 	/* ipu needs to recognize secure input buffer area as well */
 	omap_ipu_set_static_mempool(PHYS_ADDR_DUCATI_MEM, PHYS_ADDR_DUCATI_SIZE +
-					OMAP_ION_HEAP_SECURE_INPUT_SIZE);
+					OMAP4_ION_HEAP_SECURE_INPUT_SIZE);
 
 	omap_reserve();
 }
