@@ -37,7 +37,6 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
 */ /**************************************************************************/
 
 #include <stddef.h>
@@ -48,6 +47,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "sgx_mkif_km.h"
 #include "sgxutils.h"
 #include "pdump_km.h"
+
+int powering_down = 0;
 
 
 #if defined(SUPPORT_HW_RECOVERY)
@@ -332,6 +333,8 @@ PVRSRV_ERROR SGXPrePowerState (IMG_HANDLE				hDevHandle,
 			PDUMPCOMMENT("SGX idle request");
 		}
 
+		powering_down = 1;
+
 		sCommand.ui32Data[1] = ui32PowerCmd;
 
 		eError = SGXScheduleCCBCommand(psDeviceNode, SGXMKIF_CMD_POWER, &sCommand, KERNEL_ID, 0, IMG_NULL, IMG_FALSE);
@@ -355,6 +358,8 @@ PVRSRV_ERROR SGXPrePowerState (IMG_HANDLE				hDevHandle,
 			PVR_DBG_BREAK;
 		}
 		#endif /* NO_HARDWARE */
+
+		psDevInfo->bSGXIdle = IMG_TRUE;
 
 		#if defined(PDUMP)
 		PDUMPCOMMENT("TA/3D CCB Control - Wait for power event on uKernel.");
@@ -474,6 +479,7 @@ PVRSRV_ERROR SGXPostPowerState (IMG_HANDLE				hDevHandle,
 				PVR_DPF((PVR_DBG_ERROR,"SGXPostPowerState: SGXInitialise failed"));
 				return eError;
 			}
+			powering_down = 0;
 		}
 		else
 		{

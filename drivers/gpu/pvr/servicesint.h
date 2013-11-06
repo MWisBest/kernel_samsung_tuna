@@ -38,7 +38,6 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
 */ /**************************************************************************/
 
 #if !defined (__SERVICESINT_H__)
@@ -135,13 +134,16 @@ typedef struct _PVRSRV_KERNEL_MEM_INFO_
 
 	PVRSRV_MEMTYPE				memType;
 
+	IMG_VOID *bvmap_handle;
+
+    /* Device Virtual Address Offsets for the YUV MM planes */
+	IMG_UINT32 planeOffsets[PVRSRV_MAX_NUMBER_OF_MM_BUFFER_PLANES];
+
     /*
       To activate the "share mem workaround", add PVRSRV_MEM_XPROC to
       the flags for the allocation.  This will cause the "map" API to
       call use Alloc Device Mem but will share the underlying memory
-      block and sync data.  Note that this is a workaround for a bug
-      exposed by a specific use-case on a particular platform.  Do not
-      use this functionality generally.
+      block and sync data.
     */
 	struct {
         /* Record whether the workaround is active for this

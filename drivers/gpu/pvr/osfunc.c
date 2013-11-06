@@ -37,7 +37,6 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
 */ /**************************************************************************/
 
 #include <linux/version.h>
@@ -90,6 +89,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "linkage.h"
 #include "pvr_uaccess.h"
 #include "lock.h"
+#include <syslocal.h>
 
 #if defined (SUPPORT_ION)
 #include "ion.h"
@@ -351,6 +351,26 @@ OSFreePages(IMG_UINT32 ui32AllocFlags, IMG_UINT32 ui32Bytes, IMG_VOID *pvCpuVAdd
     return PVRSRV_OK;
 }
 
+IMG_INT32
+OSGetMemMultiPlaneInfo(IMG_HANDLE hOSMemHandle, IMG_UINT32* pui32AddressOffsets,
+		IMG_UINT32* ui32NumAddrOffsets)
+{
+	LinuxMemArea *psLinuxMemArea  = (LinuxMemArea *)hOSMemHandle;
+
+	if(!ui32NumAddrOffsets)
+		return -1;
+
+	if(psLinuxMemArea->eAreaType == LINUX_MEM_AREA_ION)
+		return GetIONLinuxMemAreaInfo(psLinuxMemArea, pui32AddressOffsets, ui32NumAddrOffsets);
+
+	if(!pui32AddressOffsets)
+		return -1;
+
+	*pui32AddressOffsets = 0;
+	*ui32NumAddrOffsets = 1;
+
+	return psLinuxMemArea->ui32ByteSize;
+}
 
 PVRSRV_ERROR
 OSGetSubMemHandle(IMG_HANDLE hOSMemHandle,
@@ -817,6 +837,61 @@ IMG_UINT32 OSGetCurrentProcessIDKM(IMG_VOID)
     return (IMG_UINT32)current->tgid;
 #endif
 #endif
+}
+
+
+int OSGetProcCmdline(IMG_UINT32 ui32PID, char * buffer, int buff_size)
+{
+	int res = 0;
+	unsigned int len;
+	struct task_struct *task = pid_task(find_vpid(ui32PID), PIDTYPE_PID);
+	struct mm_struct *mm = task ? get_task_mm(task) : IMG_NULL;
+	if (!mm)
+		goto out;
+	if (!mm->arg_end)
+		goto out_mm;	/* Shh! No looking before we're done */
+
+	len = mm->arg_end - mm->arg_start;
+
+	if (len > buff_size)
+		len = buff_size;
+
+	res = pvr_access_process_vm(task, mm->arg_start, buffer, len, 0);
+
+	// If the nul at the end of args has been overwritten, then
+	// assume application is using setproctitle(3).
+	if (res > 0 && buffer[res-1] != '\0' && len < buff_size) {
+		len = strnlen(buffer, res);
+		if (len < res) {
+		    res = len;
+		} else {
+			len = mm->env_end - mm->env_start;
+			if (len > buff_size - res)
+				len = buff_size - res;
+			res += pvr_access_process_vm(task, mm->env_start, buffer+res, len, 0);
+			res = strnlen(buffer, res);
+		}
+	}
+out_mm:
+	mmput(mm);
+out:
+	return res;
+}
+
+const char* OSGetPathBaseName(char * buffer, int buff_size)
+{
+	const char *base_name = buffer;
+	while (1)
+	{
+		const char *next = strnchr(base_name, buff_size, '/');
+		if (!next)
+			break;
+
+		buff_size -= (next - base_name -1);
+		base_name = (next + 1);
+
+	}
+	return base_name;
 }
 
 
@@ -3479,7 +3554,7 @@ PVRSRV_ERROR OSReleasePhysPageAddr(IMG_HANDLE hOSWrapMem)
     return PVRSRV_OK;
 }
 
-#if defined(CONFIG_TI_TILER)
+#if defined(CONFIG_TI_TILER) || defined(CONFIG_DRM_OMAP_DMM_TILER)
 
 static IMG_UINT32 CPUAddrToTilerPhy(IMG_UINT32 uiAddr)
 {
@@ -3487,12 +3562,17 @@ static IMG_UINT32 CPUAddrToTilerPhy(IMG_UINT32 uiAddr)
 	pte_t *ptep, pte;
 	pgd_t *pgd;
 	pmd_t *pmd;
+	pud_t *pud;
 
 	pgd = pgd_offset(current->mm, uiAddr);
 	if (pgd_none(*pgd) || pgd_bad(*pgd))
 		goto err_out;
 
-	pmd = pmd_offset(pgd, uiAddr);
+	pud = pud_offset(pgd, uiAddr);
+	if (pud_none(*pud) || pud_bad(*pud))
+		goto err_out;
+
+	pmd = pmd_offset(pud, uiAddr);
 	if (pmd_none(*pmd) || pmd_bad(*pmd))
 		goto err_out;
 
@@ -3520,7 +3600,7 @@ err_out:
 	return ui32PhysAddr;
 }
 
-#endif /* defined(CONFIG_TI_TILER) */
+#endif /* defined(CONFIG_TI_TILER) || defined(CONFIG_DRM_OMAP_DMM_TILER) */
 
 /*!
 ******************************************************************************
@@ -3732,7 +3812,7 @@ PVRSRV_ERROR OSAcquirePhysPageAddr(IMG_VOID *pvCPUVAddr,
 	}
 	if (psInfo->ppsPages[i] == NULL)
 	{
-#if defined(CONFIG_TI_TILER)
+#if defined(CONFIG_TI_TILER) || defined(CONFIG_DRM_OMAP_DMM_TILER)
 		/* This could be tiler memory.*/
 		IMG_UINT32 ui32TilerAddr = CPUAddrToTilerPhy(ulAddr);
 		if (ui32TilerAddr)
@@ -3743,7 +3823,7 @@ PVRSRV_ERROR OSAcquirePhysPageAddr(IMG_VOID *pvCPUVAddr,
 			psSysPAddr[i].uiAddr = ui32TilerAddr;
 			continue;
 		}
-#endif /* defined(CONFIG_TI_TILER) */
+#endif /* defined(CONFIG_TI_TILER) || defined(CONFIG_DRM_OMAP_DMM_TILER) */
 
 	    bHaveNoPageStructs = IMG_TRUE;
 	}
@@ -4004,7 +4084,14 @@ IMG_BOOL CheckExecuteCacheOp(IMG_HANDLE hOSMemHandle,
 	psMMapOffsetStructList = &psLinuxMemArea->sMMapOffsetStructList;
 	ui32AreaLength = psLinuxMemArea->ui32ByteSize;
 
-	PVR_ASSERT(ui32Length <= ui32AreaLength);
+	/*
+		Don't check the length in the case of sparse mappings as
+		we only know the physical length not the virtual
+	*/
+	if (!psLinuxMemArea->hBMHandle)
+	{
+		PVR_ASSERT(ui32Length <= ui32AreaLength);
+	}
 
 	if(psLinuxMemArea->eAreaType == LINUX_MEM_AREA_SUB_ALLOC)
 	{

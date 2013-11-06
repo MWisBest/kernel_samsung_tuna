@@ -38,7 +38,6 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
 */ /**************************************************************************/
 
 #if !defined(__SYSLOCAL_H__)
@@ -92,6 +91,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #endif
 #endif
 
+#if defined(CONFIG_HAS_WAKELOCK)
+#include <linux/wakelock.h>
+#endif
+
 #if !defined(PVR_NO_OMAP_TIMER)
 #define PVR_OMAP_TIMER_BASE_IN_SYS_SPEC_DATA
 #endif
@@ -103,11 +106,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #endif
 
 #if defined(__linux__)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)) && defined(SGX_OCP_REGS_ENABLED)
-/* FIXME: Temporary workaround for OMAP4470 */
-#if !defined(SGX544)
+#if defined(SGX_OCP_REGS_ENABLED)
 #define SGX_OCP_NO_INT_BYPASS
-#endif
 #endif
 #endif
 
@@ -188,9 +188,9 @@ typedef struct _SYS_SPECIFIC_DATA_TAG_
 #if defined(PVR_OMAP_USE_DM_TIMER_API)
 	struct omap_dm_timer *psGPTimer;
 #endif
-	IMG_UINT32 ui32SGXFreqListSize;
-	IMG_UINT32 *pui32SGXFreqList;
-	IMG_UINT32 ui32SGXFreqListIndex;
+#if defined(CONFIG_HAS_WAKELOCK)
+	struct wake_lock wake_lock;
+#endif /* CONFIG_HAS_WAKELOCK */
 #endif	/* defined(__linux__) */
 } SYS_SPECIFIC_DATA;
 
@@ -211,11 +211,12 @@ IMG_VOID UnwrapSystemPowerChange(SYS_SPECIFIC_DATA *psSysSpecData);
 
 #if defined(__linux__)
 
-PVRSRV_ERROR SysPMRuntimeRegister(void);
-PVRSRV_ERROR SysPMRuntimeUnregister(void);
+PVRSRV_ERROR SysPMRuntimeRegister(SYS_SPECIFIC_DATA *psSysSpecificData);
+PVRSRV_ERROR SysPMRuntimeUnregister(SYS_SPECIFIC_DATA *psSysSpecificData);
 
 PVRSRV_ERROR SysDvfsInitialize(SYS_SPECIFIC_DATA *psSysSpecificData);
 PVRSRV_ERROR SysDvfsDeinitialize(SYS_SPECIFIC_DATA *psSysSpecificData);
+int pvr_access_process_vm(struct task_struct *tsk, unsigned long addr, void *buf, int len, int write);
 
 #else /* defined(__linux__) */
 
@@ -250,6 +251,8 @@ static INLINE PVRSRV_ERROR SysDvfsDeinitialize(void)
 {
 	return PVRSRV_OK;
 }
+
+#define pvr_access_process_vm(tsk, addr, buf, len, write) -1
 
 #endif /* defined(__linux__) */
 

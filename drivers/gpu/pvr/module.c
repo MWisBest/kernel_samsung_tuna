@@ -37,7 +37,6 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
 */ /**************************************************************************/
 
 #include <linux/version.h>
@@ -161,29 +160,11 @@ module_param(gPVRDebugLevel, uint, 0644);
 MODULE_PARM_DESC(gPVRDebugLevel, "Sets the level of debug output (default 0x7)");
 #endif /* defined(PVRSRV_NEED_PVR_DPF) */
 
-#if defined(CONFIG_SGX_DVFS_MODE_NONE)
-#define DEFAULT_IDLE_MODE	0
-#elif defined(CONFIG_SGX_DVFS_MODE_LINEAR)
-#define DEFAULT_IDLE_MODE	1
-#elif defined(CONFIG_SGX_DVFS_MODE_OPTIMIZED)
-#define DEFAULT_IDLE_MODE	2
-#else
-#error "sgx ide mode not defined"
-#endif
-
-bool sgx_idle_logging = false;
-module_param(sgx_idle_logging, bool, 0644);
-uint sgx_idle_mode = DEFAULT_IDLE_MODE;
-module_param(sgx_idle_mode, uint, 0644);
-uint sgx_idle_timeout = CONFIG_SGX_DVFS_IDLE_TIMEOUT * NSEC_PER_USEC;
-module_param(sgx_idle_timeout, uint, 0644);
-
-uint sgx_apm_latency = SYS_SGX_ACTIVE_POWER_LATENCY_MS;
-module_param(sgx_apm_latency, uint, 0644);
-
 #if defined(CONFIG_ION_OMAP)
 #include <linux/ion.h>
 #include <linux/omap_ion.h>
+#include "ion.h"
+extern void omap_ion_register_pvr_export(void *);
 extern struct ion_device *omap_ion_device;
 struct ion_client *gpsIONClient;
 EXPORT_SYMBOL(gpsIONClient);
@@ -376,14 +357,16 @@ static int __devinit PVRSRVDriverProbe(LDM_DEV *pDevice, const struct pci_device
 
 #if defined(CONFIG_ION_OMAP)
 	gpsIONClient = ion_client_create(omap_ion_device,
-									 1 << ION_HEAP_TYPE_CARVEOUT |
-									 1 << OMAP_ION_HEAP_TYPE_TILER,
-									 "pvr");
+			1 << ION_HEAP_TYPE_CARVEOUT |
+			1 << OMAP_ION_HEAP_TYPE_TILER |
+			1 << ION_HEAP_TYPE_SYSTEM,
+			"pvr");
 	if (IS_ERR_OR_NULL(gpsIONClient))
 	{
 		PVR_DPF((PVR_DBG_ERROR, "PVRSRVDriverProbe: Couldn't create ion client"));
 		return PTR_ERR(gpsIONClient);
 	}
+	omap_ion_register_pvr_export(&PVRSRVExportFDToIONHandles);
 #endif /* defined(CONFIG_ION_OMAP) */
 
 	return 0;

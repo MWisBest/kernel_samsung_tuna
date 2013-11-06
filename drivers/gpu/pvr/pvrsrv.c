@@ -38,7 +38,6 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
 */ /**************************************************************************/
 
 #include "services_headers.h"
@@ -49,6 +48,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "pdump_km.h"
 #include "deviceid.h"
 #include "ra.h"
+#if defined(__linux__)
+#include "sysfs.h"
+#endif
 #if defined(TTRACE)
 #include "ttrace.h"
 #endif
@@ -59,6 +61,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "lists.h"
 
 IMG_UINT32	g_ui32InitFlags;
+extern int powering_down;
 
 /* mark which parts of Services were initialised */
 #define		INIT_DATA_ENABLE_PDUMPINIT	0x1U
@@ -363,6 +366,14 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVInit(PSYS_DATA psSysData)
 {
 	PVRSRV_ERROR	eError;
 
+#if defined(__linux__)
+	eError = PVRSRVCreateSysfsEntry();
+	if (eError != PVRSRV_OK)
+	{
+		goto Error;
+	}
+#endif
+	
 	/* Initialise Resource Manager */
 	eError = ResManInit();
 	if (eError != PVRSRV_OK)
@@ -725,9 +736,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVFinaliseSystem(IMG_BOOL bInitSuccessful)
 	}
 
 	/* Some platforms call this too early in the boot phase. */
-#if  !defined(__QNXNTO__)
 	PDUMPENDINITPHASE();
-#endif
 
 	return PVRSRV_OK;
 }
@@ -1477,8 +1486,9 @@ IMG_BOOL IMG_CALLCONV PVRSRVDeviceLISR(PVRSRV_DEVICE_NODE *psDeviceNode)
 		{
 			bStatus = (*psDeviceNode->pfnDeviceISR)(psDeviceNode->pvISRData);
 		}
-
-		SysClearInterrupts(psSysData, psDeviceNode->ui32SOCInterruptBit);
+		if(!powering_down) {
+			SysClearInterrupts(psSysData, psDeviceNode->ui32SOCInterruptBit);
+		}
 	}
 
 out:

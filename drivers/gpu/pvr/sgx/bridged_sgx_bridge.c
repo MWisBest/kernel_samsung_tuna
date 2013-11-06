@@ -39,7 +39,6 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
 */ /**************************************************************************/
 
 
@@ -610,7 +609,6 @@ SGXDoKickBW(IMG_UINT32 ui32BridgeID,
 
 PVRSRV_BRIDGE_SGX_DOKICK_RETURN_RESULT:
 
-//#if (!defined(_UITRON_) && !defined(UNDER_VISTA)) || defined (SUPPORT_SID_INTERFACE)
 	if(phKernelSyncInfoHandles)
 	{
 		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
@@ -1351,6 +1349,7 @@ SGXDevInitPart2BW(IMG_UINT32 ui32BridgeID,
 						   PVRSRV_HANDLE_TYPE_MEM_INFO);
 	if (eError != PVRSRV_OK)
 	{
+		PVR_DPF((PVR_DBG_ERROR, "SGXDevInitPart2BW: Failed to look up HWPerf meminfo (possibly due to SUPPORT_SGX_HWPERF option mismatch)"));
 		bLookupFailed = IMG_TRUE;
 	}
 #endif
@@ -1535,7 +1534,7 @@ SGXDevInitPart2BW(IMG_UINT32 ui32BridgeID,
 
 	if (bLookupFailed)
 	{
-		PVR_DPF((PVR_DBG_ERROR, "DevInitSGXPart2BW: A handle lookup failed"));
+		PVR_DPF((PVR_DBG_ERROR, "SGXDevInitPart2BW: A handle lookup failed"));
 		psSGXDevInitPart2OUT->eError = PVRSRV_ERROR_INIT2_PHASE_FAILED;
 		return 0;
 	}
@@ -1898,7 +1897,7 @@ SGXDevInitPart2BW(IMG_UINT32 ui32BridgeID,
 
 	if (bReleaseFailed)
 	{
-		PVR_DPF((PVR_DBG_ERROR, "DevInitSGXPart2BW: A handle release failed"));
+		PVR_DPF((PVR_DBG_ERROR, "SGXDevInitPart2BW: A handle release failed"));
 		psSGXDevInitPart2OUT->eError = PVRSRV_ERROR_INIT2_PHASE_FAILED;
 		/*
 		 * Given that we checked the handles before release, a release
@@ -2221,7 +2220,7 @@ SGXDevInitPart2BW(IMG_UINT32 ui32BridgeID,
 
 		}
 
-		PVR_DPF((PVR_DBG_ERROR, "DevInitSGXPart2BW: A dissociate failed"));
+		PVR_DPF((PVR_DBG_ERROR, "SGXDevInitPart2BW: A dissociate failed"));
 
 		psSGXDevInitPart2OUT->eError = PVRSRV_ERROR_INIT2_PHASE_FAILED;
 
@@ -3751,7 +3750,7 @@ SGXPDumpHWPerfCBBW(IMG_UINT32						ui32BridgeID,
 	PVR_UNREFERENCED_PARAMETER(psRetOUT);
 	PVR_UNREFERENCED_PARAMETER(psPerProc);
 	return 0;
-#endif /* defined(LINUX) || defined(UNDER_XP) */
+#endif
 #else
 	PVR_UNREFERENCED_PARAMETER(ui32BridgeID);
 	PVR_UNREFERENCED_PARAMETER(psPDumpHWPerfCBIN);

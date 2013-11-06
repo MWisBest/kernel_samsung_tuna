@@ -37,7 +37,6 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
 */ /**************************************************************************/
 
 #include "services_headers.h"
@@ -1215,6 +1214,9 @@ IMG_VOID PVRSRVFreeCommandCompletePacketKM(IMG_HANDLE	hCmdCookie,
 
 #endif /* (SUPPORT_CUSTOM_SWAP_OPERATIONS) */
 
+#if defined(SYS_OMAP4_HAS_DVFS_FRAMEWORK)
+extern void sgxfreq_notif_sgx_frame_done(void);
+#endif /* (SYS_OMAP4_HAS_DVFS_FRAMEWORK) */
 
 /*!
 ******************************************************************************
@@ -1236,6 +1238,10 @@ IMG_VOID PVRSRVCommandCompleteKM(IMG_HANDLE	hCmdCookie,
 	IMG_UINT32				i;
 	COMMAND_COMPLETE_DATA	*psCmdCompleteData = (COMMAND_COMPLETE_DATA *)hCmdCookie;
 	SYS_DATA				*psSysData;
+
+#if defined(SYS_OMAP4_HAS_DVFS_FRAMEWORK)
+	sgxfreq_notif_sgx_frame_done();
+#endif /* (SYS_OMAP4_HAS_DVFS_FRAMEWORK) */
 
 	SysAcquireData(&psSysData);
 

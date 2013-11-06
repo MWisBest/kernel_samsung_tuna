@@ -38,7 +38,6 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
 */ /**************************************************************************/
 
 #include <stddef.h>
@@ -48,6 +47,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "pdump_km.h"
 #include "pvr_bridge_km.h"
 #include "osfunc.h"
+#if defined(CONFIG_GCBV)
+#include "gc_bvmapping.h"
+#endif
 
 #if defined(SUPPORT_ION)
 #include "ion.h"
@@ -440,6 +442,34 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetDeviceMemHeapInfoKM(IMG_HANDLE					hDevCookie
 	return PVRSRV_OK;
 }
 
+static PVRSRV_ERROR UpdateDeviceMemoryPlaneOffsets(PVRSRV_KERNEL_MEM_INFO *psMemInfo)
+{
+	if(psMemInfo->ui32Flags & PVRSRV_MEM_ION)
+	{
+
+		PVRSRV_MEMBLK *psMemBlock = &(psMemInfo->sMemBlk);
+		IMG_UINT32 ui32AddressOffsets[PVRSRV_MAX_NUMBER_OF_MM_BUFFER_PLANES];
+		IMG_UINT32 ui32NumAddrOffsets = PVRSRV_MAX_NUMBER_OF_MM_BUFFER_PLANES;
+
+		IMG_INT32 retSize = OSGetMemMultiPlaneInfo(psMemBlock->hOSMemHandle,
+				ui32AddressOffsets, &ui32NumAddrOffsets);
+
+		if((retSize > 0) && ui32NumAddrOffsets)
+		{
+			int i;
+			for(i = 0; i < PVRSRV_MAX_NUMBER_OF_MM_BUFFER_PLANES; i++)
+			{
+				if(i < ui32NumAddrOffsets)
+					psMemInfo->planeOffsets[i] = ui32AddressOffsets[i];
+				else
+					psMemInfo->planeOffsets[i] = (IMG_INT32)-1;
+			}
+		}
+	}
+
+	return PVRSRV_OK;
+
+}
 
 /*!
 ******************************************************************************
@@ -505,6 +535,15 @@ static PVRSRV_ERROR AllocDeviceMem(IMG_HANDLE		hDevCookie,
 
 	psMemBlock = &(psMemInfo->sMemBlk);
 
+	/* ION and DYNAMIC re-mapping
+	 * require the PAGEABLE FLAG set
+	 */
+	if (ui32Flags & (PVRSRV_MEM_ION |
+			PVRSRV_HAP_NO_GPU_VIRTUAL_ON_ALLOC))
+	{
+		ui32Flags |= PVRSRV_HAP_GPU_PAGEABLE;
+	}
+
 	/* BM supplied Device Virtual Address with physical backing RAM */
 	psMemInfo->ui32Flags = ui32Flags | PVRSRV_MEM_RAM_BACKED_ALLOCATION;
 
@@ -553,6 +592,9 @@ static PVRSRV_ERROR AllocDeviceMem(IMG_HANDLE		hDevCookie,
 
 	/* Clear the Backup buffer pointer as we do not have one at this point. We only allocate this as we are going up/down */
 	psMemInfo->pvSysBackupBuffer = IMG_NULL;
+
+	/* Update the Multimedia plane offsets */
+	UpdateDeviceMemoryPlaneOffsets(psMemInfo);
 
 	/*
 	 * Setup the output.
@@ -899,6 +941,11 @@ PVRSRV_ERROR FreeMemCallBackCommon(PVRSRV_KERNEL_MEM_INFO *psMemInfo,
 		}
 	}
 
+#if defined(CONFIG_GCBV)
+	if (psMemInfo->ui32Flags & PVRSRV_MAP_GC_MMU)
+		gc_bvunmap_meminfo(psMemInfo);
+#endif
+
 	/*
 	 * FreeDeviceMem2 will do the right thing, freeing
 	 * the virtual memory info when the allocator calls
@@ -980,6 +1027,103 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVFreeDeviceMemKM(IMG_HANDLE				hDevCookie,
 	}
 
 	return eError;
+}
+
+
+/*!
+******************************************************************************
+
+ @Function	PVRSRVRemapToDevKM
+
+ @Description
+
+ Remaps buffer to GPU virtual address space
+
+ @Input    psMemInfo
+
+ @Return   PVRSRV_ERROR : 0 means the memory is still unmapped - ERROR,
+ *                        bigger than 0 (mapping reference count) - success mapping
+ *                        smaller than 0 - PVRSRV error
+******************************************************************************/
+IMG_EXPORT
+IMG_INT32 IMG_CALLCONV PVRSRVRemapToDevKM(IMG_HANDLE	hDevCookie,
+		PVRSRV_KERNEL_MEM_INFO *psMemInfo, IMG_DEV_VIRTADDR *psDevVAddr)
+{
+	PVRSRV_MEMBLK *psMemBlock;
+	IMG_INT32 result;
+
+	PVR_UNREFERENCED_PARAMETER(hDevCookie);
+
+	if (!psMemInfo)
+	{
+		PVR_DPF((PVR_DBG_ERROR,"PVRSRVRemapToDevKM: invalid parameters"));
+		return PVRSRV_ERROR_INVALID_PARAMS;
+	}
+
+	psMemBlock = &(psMemInfo->sMemBlk);
+
+	result = BM_RemapToDev(psMemBlock->hBuffer);
+
+	if(result <= 0)
+	{
+		PVR_DPF((PVR_DBG_ERROR,"PVRSRVRemapToDevKM: could not remap"));
+	}
+
+	*psDevVAddr = psMemInfo->sDevVAddr =
+					psMemBlock->sDevVirtAddr = BM_HandleToDevVaddr(psMemBlock->hBuffer);
+
+	UpdateDeviceMemoryPlaneOffsets(psMemInfo);
+
+	return result;
+}
+
+
+/*!
+******************************************************************************
+
+ @Function	PVRSRVUnmapFromDevKM
+
+ @Description
+
+ Unmaps buffer from GPU virtual address space
+
+ @Input    psMemInfo
+
+ @Return   PVRSRV_ERROR : 0 means the memory is unmapped,
+ *                        bigger than 0 (mapping reference count) still mapped
+ *                        smaller than 0 - PVRSRV error
+******************************************************************************/
+IMG_EXPORT
+IMG_INT32 IMG_CALLCONV PVRSRVUnmapFromDevKM(IMG_HANDLE	hDevCookie,
+		PVRSRV_KERNEL_MEM_INFO *psMemInfo)
+{
+	PVRSRV_MEMBLK *psMemBlock;
+	IMG_INT32 result;
+
+	PVR_UNREFERENCED_PARAMETER(hDevCookie);
+
+	if (!psMemInfo)
+	{
+		PVR_DPF((PVR_DBG_ERROR,"PVRSRVUnmapFromDevKM: invalid parameters"));
+		return PVRSRV_ERROR_INVALID_PARAMS;
+	}
+
+	psMemBlock = &(psMemInfo->sMemBlk);
+
+	result = BM_UnmapFromDev(psMemBlock->hBuffer);
+	/* 0 means the memory is unmapped,
+	 * bigger than 0 (mapping ref count) still mapped
+	 * smaller than 0 PVRSRV error
+	*/
+	if(result < 0)
+	{
+		PVR_DPF((PVR_DBG_ERROR,"PVRSRVUnmapFromDevKM: could not unmap"));
+	}
+
+	psMemInfo->sDevVAddr =
+					psMemBlock->sDevVirtAddr = BM_HandleToDevVaddr(psMemBlock->hBuffer);
+
+	return result;
 }
 
 
@@ -1088,6 +1232,11 @@ PVRSRV_ERROR IMG_CALLCONV _PVRSRVAllocDeviceMemKM(IMG_HANDLE				hDevCookie,
 	{
 		return eError;
 	}
+
+#if defined(CONFIG_GCBV)
+	if (ui32Flags & PVRSRV_MAP_GC_MMU)
+		gc_bvmap_meminfo(psMemInfo);
+#endif
 
 	if (ui32Flags & PVRSRV_MEM_NO_SYNCOBJ)
 	{

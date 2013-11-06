@@ -38,7 +38,6 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
 */ /**************************************************************************/
 
 #ifndef __SERVICES_H__
@@ -106,12 +105,17 @@ extern "C" {
 #define PVRSRV_HAP_SINGLE_PROCESS			(1U<<16)
 #define PVRSRV_HAP_MULTI_PROCESS			(1U<<17)
 #define PVRSRV_HAP_FROM_EXISTING_PROCESS	(1U<<18)
-#define PVRSRV_HAP_NO_CPU_VIRTUAL			(1U<<19)
+#define PVRSRV_HAP_NO_CPU_VIRTUAL           (1U<<19)
+#define PVRSRV_MAP_GC_MMU                   (1UL<<20)
+#define PVRSRV_HAP_GPU_PAGEABLE             (1U<<21)
+#define PVRSRV_HAP_NO_GPU_VIRTUAL_ON_ALLOC  (1U<<22)
 #define PVRSRV_HAP_MAPTYPE_MASK				(PVRSRV_HAP_KERNEL_ONLY \
                                             |PVRSRV_HAP_SINGLE_PROCESS \
                                             |PVRSRV_HAP_MULTI_PROCESS \
-                                            |PVRSRV_HAP_FROM_EXISTING_PROCESS \
-                                            |PVRSRV_HAP_NO_CPU_VIRTUAL)
+                                            |PVRSRV_HAP_FROM_EXISTING_PROCESS)
+#define PVRSRV_HAP_MAPPING_CTRL_MASK		(PVRSRV_HAP_NO_CPU_VIRTUAL\
+                                            |PVRSRV_HAP_GPU_PAGEABLE \
+                                            |PVRSRV_HAP_NO_GPU_VIRTUAL_ON_ALLOC)
 
 /*
 	Allows user allocations to override heap attributes
@@ -211,6 +215,19 @@ extern "C" {
 */
 #define PVRSRV_PDUMP_FLAGS_CONTINUOUS		0x1
 
+/* Number of MM planes supported for the meminfo */
+#define PVRSRV_MAX_NUMBER_OF_MM_BUFFER_PLANES  3
+
+/* Invalid Device Virtual Address Value */
+#define PVRSRV_BAD_DEVICE_ADDRESS           0
+
+/* Maximum array size of the meminfo's when invoking
+ * PVRSRVMultiManageDevMem() in shared mode */
+#define PVRSRV_MULTI_MANAGE_DEV_MEM_MAX_SIZE 128
+
+/* Maximum array size of the meminfo's when invoking
+ * PVRSRVMultiManageDevMem() in direct (copy) mode */
+#define PVRSRV_MULTI_MANAGE_DEV_MEM_MAX_DIRECT_SIZE 8
 
 /******************************************************************************
  * Enums
@@ -458,14 +475,77 @@ typedef struct _PVRSRV_CLIENT_MEM_INFO_
 	#endif /* !defined(USE_CODE) */
 #endif /* defined(SUPPORT_MEMINFO_IDS) */
 
+    /* Sub-system ID that allocated the buffer */
+	IMG_UINT64 		uiSubSystem;
+
 	/*
 		ptr to next mem info
 		D3D uses psNext for mid-scene texture reload.
 	*/
 	struct _PVRSRV_CLIENT_MEM_INFO_		*psNext;
 
+    /* Device Virtual Addresses for the YUV MM planes */
+	IMG_UINT32 planeOffsets[PVRSRV_MAX_NUMBER_OF_MM_BUFFER_PLANES];
 } PVRSRV_CLIENT_MEM_INFO, *PPVRSRV_CLIENT_MEM_INFO;
 
+/*
+	Multiple buffer device virtual mapping management
+*/
+typedef enum
+{
+	PVRSRV_MULTI_MANAGE_DEV_MEM_RQST_INVALID = 0,
+	/* We may not have GPU virtual address */
+	PVRSRV_MULTI_MANAGE_DEV_MEM_RQST_MAP = 1,
+	PVRSRV_MULTI_MANAGE_DEV_MEM_RQST_LOCK_MAP,
+	PVRSRV_MULTI_MANAGE_DEV_MEM_RQST_SWAP_MAP_FROM_PREV,
+	/* We have GPU virtual address */
+	PVRSRV_MULTI_MANAGE_DEV_MEM_RQST_UNMAP,
+	PVRSRV_MULTI_MANAGE_DEV_MEM_RQST_UNLOCK_MAP,
+	PVRSRV_MULTI_MANAGE_DEV_MEM_RQST_SWAP_MAP_TO_NEXT,
+	PVRSRV_MULTI_MANAGE_DEV_MEM_RQST_LAST = (IMG_UINT32)-1
+} PVRSRV_MULTI_MANAGE_DEV_MEM_RQST_TYPE;
+
+typedef struct _PVRSRV_MANAGE_DEV_MEM_REQUEST
+{
+	PVRSRV_MULTI_MANAGE_DEV_MEM_RQST_TYPE eReqType;
+	IMG_UINT32				ui32FieldSize; 	/* valid if equal to the size of the structure */
+	IMG_HANDLE				hKernelMemInfo;
+	IMG_HANDLE				hKernelSyncInfo;
+	PVRSRV_CLIENT_MEM_INFO  *psClientMemInfo;	/* Client side reference */
+	IMG_UINT32				ui32Hints;
+	IMG_UINT32				ui32Attribs;
+	IMG_SIZE_T 				uSize;
+	IMG_SIZE_T 				uAlignment;
+	IMG_PVOID				pvLinAddr; 			/* CPU Virtual Address */
+	IMG_UINT32				ui32CpuMapRefCount;
+	IMG_DEV_VIRTADDR		sDevVAddr; 			/* Device Virtual Address */
+	IMG_UINT32				ui32GpuMapRefCount;
+	IMG_UINT32  			ui32TransferFromToReqSlotIndx;	/* Transfer GPU virtual mapping from index */
+	IMG_UINT64 				uiSubSystem;
+	PVRSRV_ERROR 			eError;
+}PVRSRV_MANAGE_DEV_MEM_REQUEST;
+
+typedef PVRSRV_MANAGE_DEV_MEM_REQUEST PVRSRV_MANAGE_DEV_MEM_RESPONSE;
+
+typedef struct _PVRSRV_MULTI_MANAGE_DEV_MEM_REQUESTS
+{
+	IMG_UINT32		ui32BridgeFlags; /* Must be first member of structure */
+	#if defined (SUPPORT_SID_INTERFACE)
+	IMG_SID			hDevCookie;
+	/* handle to kernel shared memory */
+	IMG_SID			hKernelMemInfo;
+	#else
+	IMG_HANDLE		hDevCookie;
+	/* handle to kernel shared memory*/
+	IMG_HANDLE		hKernelMemInfo;
+	#endif
+	PVRSRV_CLIENT_MEM_INFO *psSharedMemClientMemInfo;	/* NULL if direct (not through shared) */
+	IMG_UINT32 		ui32MaxNumberOfRequests;			/* Must be <= PVRSRV_MULTI_MANAGE_DEV_MEM_MAX_DIRECT_SIZE for direct */
+	IMG_UINT32 		ui32NumberOfValidRequests;			/* Must be <= ui32MaxNumberOfRequests */
+	IMG_UINT32 		ui32CtrlFlags;
+	IMG_UINT32 		ui32StatusFlags;
+	PVRSRV_MANAGE_DEV_MEM_REQUEST sMemRequests[PVRSRV_MULTI_MANAGE_DEV_MEM_MAX_DIRECT_SIZE]; /* Memory Requests Array */
+}PVRSRV_MULTI_MANAGE_DEV_MEM_REQUESTS;
 
 /*!
  ******************************************************************************
@@ -757,6 +837,21 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVFreeDeviceMem(IMG_CONST PVRSRV_DEV_DATA	*psDevDa
 								PVRSRV_CLIENT_MEM_INFO		*psMemInfo);
 
 IMG_IMPORT
+PVRSRV_ERROR IMG_CALLCONV PVRSRVMultiManageDevMem(IMG_CONST PVRSRV_DEV_DATA	*psDevData,
+		IMG_UINT32 ui32ControlFlags, PVRSRV_MULTI_MANAGE_DEV_MEM_REQUESTS * psMultiMemDevRequest,
+		IMG_UINT32 *ui32StatusFlags, IMG_UINT32 *ui32IndexError);
+
+IMG_IMPORT
+PVRSRV_ERROR IMG_CALLCONV PVRSRVManageDevMem(IMG_CONST PVRSRV_DEV_DATA	*psDevData,
+		PVRSRV_MULTI_MANAGE_DEV_MEM_RQST_TYPE eReq, PVRSRV_CLIENT_MEM_INFO *psMemInfo,
+		IMG_UINT32 *ui32StatusFlags);
+
+IMG_IMPORT
+PVRSRV_ERROR IMG_CALLCONV PVRSRVManageDevMemSwapGpuVirtAddr(IMG_CONST PVRSRV_DEV_DATA	*psDevData,
+		PVRSRV_CLIENT_MEM_INFO *psMemInfoSourceArray, PVRSRV_CLIENT_MEM_INFO *psMemInfoTargetArray,
+		IMG_UINT32 ui32NumBuff, IMG_UINT32 *ui32StatusFlags);
+
+IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVExportDeviceMem(IMG_CONST PVRSRV_DEV_DATA	*psDevData,
 												PVRSRV_CLIENT_MEM_INFO		*psMemInfo,
 #if defined (SUPPORT_SID_INTERFACE)
@@ -856,6 +951,9 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVUnmapPhysToUserSpace(IMG_CONST PVRSRV_DEV_DATA *
 										IMG_PVOID pvProcess);
 
 #if defined(LINUX)
+IMG_IMPORT
+PVRSRV_ERROR IMG_CALLCONV PVRSRVCloseExportedDeviceMemHanle(const PVRSRV_DEV_DATA	*psDevData,
+												 IMG_INT i32Fd);
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVExportDeviceMem2(IMG_CONST PVRSRV_DEV_DATA	*psDevData,
 												 PVRSRV_CLIENT_MEM_INFO		*psMemInfo,
@@ -1486,7 +1584,7 @@ IMG_IMPORT IMG_VOID  IMG_CALLCONV PVRSRVFreeUserModeMemTracking(IMG_VOID *pvMem)
 
 IMG_IMPORT IMG_PVOID IMG_CALLCONV PVRSRVReallocUserModeMemTracking(IMG_VOID *pvMem, IMG_SIZE_T ui32NewSize, 
 													  IMG_CHAR *pszFileName, IMG_UINT32 ui32LineNumber);
-#endif /* defined(DEBUG) && (defined(__linux__) || defined(_UITRON_)) */
+#endif
 
 /******************************************************************************
  * PVR Event Object API(s)

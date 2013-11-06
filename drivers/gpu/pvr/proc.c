@@ -40,7 +40,6 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
 */ /**************************************************************************/
 
 #include <linux/version.h>
@@ -53,9 +52,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <linux/init.h>
 #include <linux/module.h>
+#include <linux/mm.h>
 #include <linux/fs.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/sched.h>
 
 #include "services_headers.h"
 
@@ -651,10 +652,20 @@ struct proc_dir_entry* CreatePerProcessProcEntrySeq (
 
     if (!psPerProc->psProcDir)
     {
-        IMG_CHAR dirname[16];
+        IMG_CHAR dirname_buffer[256];
+        IMG_CHAR dirname[256];
         IMG_INT ret;
+        const IMG_CHAR *proc_basename = dirname_buffer;
+        dirname_buffer[255] = dirname[255] = '\0';
 
-        ret = snprintf(dirname, sizeof(dirname), "%u", ui32PID);
+        OSGetProcCmdline(ui32PID, dirname_buffer, sizeof(dirname_buffer));
+        PVR_DPF((PVR_DBG_MESSAGE, "Command Line of the process with ID %u is %s", ui32PID, dirname_buffer));
+
+        proc_basename = OSGetPathBaseName(dirname_buffer, sizeof(dirname_buffer));
+        PVR_DPF((PVR_DBG_MESSAGE, "Base Name of the process with ID %u is %s\n", ui32PID, proc_basename));
+
+        ret = snprintf(dirname, sizeof(dirname), "%u-%s", ui32PID, proc_basename);
+        PVR_DPF((PVR_DBG_MESSAGE, "Creating a new process entry for %s with ID %u\n", proc_basename, ui32PID));
 
 		if (ret <=0 || ret >= (IMG_INT)sizeof(dirname))
 		{

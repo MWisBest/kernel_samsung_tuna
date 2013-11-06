@@ -37,7 +37,6 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
 */ /**************************************************************************/
 
 #include <stddef.h> /* For the macro offsetof() */
@@ -97,6 +96,22 @@ PVRSRV_ERROR SGXDoKickKM(IMG_HANDLE hDevHandle, SGX_CCB_KICK *psCCBKick)
 	psTACmd = CCB_DATA_FROM_OFFSET(SGXMKIF_CMDTA_SHARED, psCCBMemInfo, psCCBKick, ui32CCBOffset);
 
 	PVR_TTRACE(PVRSRV_TRACE_GROUP_KICK, PVRSRV_TRACE_CLASS_CMD_START, KICK_TOKEN_DOKICK);
+
+#if defined(TTRACE)
+	if (psCCBKick->bFirstKickOrResume)
+	{
+		PVR_TTRACE(PVRSRV_TRACE_GROUP_KICK,
+				   PVRSRV_TRACE_CLASS_FLAGS,
+				   KICK_TOKEN_FIRST_KICK);
+	}
+
+	if (psCCBKick->bLastInScene)
+	{
+		PVR_TTRACE(PVRSRV_TRACE_GROUP_KICK,
+				   PVRSRV_TRACE_CLASS_FLAGS,
+				   KICK_TOKEN_LAST_KICK);
+	}
+#endif
 	PVR_TTRACE_UI32(PVRSRV_TRACE_GROUP_KICK, PVRSRV_TRACE_CLASS_CCB,
 			KICK_TOKEN_CCB_OFFSET, psCCBKick->ui32CCBOffset);
 
@@ -741,6 +756,24 @@ PVRSRV_ERROR SGXDoKickKM(IMG_HANDLE hDevHandle, SGX_CCB_KICK *psCCBKick)
 			psSyncInfo->psSyncData->ui32ReadOpsPending--;
 		}
 #endif/* SUPPORT_SGX_GENERALISED_SYNCOBJECTS */
+
+		if (psCCBKick->hTA3DSyncInfo)
+		{
+			psSyncInfo = (PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->hTA3DSyncInfo;
+			psSyncInfo->psSyncData->ui32ReadOpsPending--;
+		}
+	
+		if (psCCBKick->hTASyncInfo)
+		{
+			psSyncInfo = (PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->hTASyncInfo;
+			psSyncInfo->psSyncData->ui32ReadOpsPending--;
+		}
+	
+		if (psCCBKick->h3DSyncInfo)
+		{
+			psSyncInfo = (PVRSRV_KERNEL_SYNC_INFO *)psCCBKick->h3DSyncInfo;
+			psSyncInfo->psSyncData->ui32ReadOpsPending--;
+		}
 
 		PVR_TTRACE(PVRSRV_TRACE_GROUP_KICK, PVRSRV_TRACE_CLASS_FUNCTION_EXIT,
 				KICK_TOKEN_DOKICK);

@@ -1,4 +1,4 @@
-ccflags-y = -DLINUX -D__linux__ -DANDROID -DPVR_BUILD_DIR="\"omap4430_android\""
+ccflags-y = -DLINUX -D__linux__ -DANDROID -DPVR_BUILD_DIR="\"omap_android\""
 ccflags-y += -Idrivers/gpu/pvr -Idrivers/gpu/pvr/omap4 -Idrivers/video/omap2
 
 ccflags-y += \
@@ -29,7 +29,7 @@ ccflags-y += \
 
 ccflags-$(CONFIG_PVR_SGXCORE_540) += \
 	-DSGX540 -DSUPPORT_SGX540 \
-	-DSGX_CORE_REV=120
+	-DSGX_CORE_REV=120 -DSGXCORE=540
 
 ccflags-$(CONFIG_PVR_BUILD_RELEASE) += \
 	-DPVR_BUILD_TYPE="\"release\"" -DRELEASE
@@ -92,6 +92,8 @@ pvrsrvkm-y := \
 	resman.o \
 	power.o \
 	mem.o \
+	mem_debug.o \
+	osfunc_common.o \
 	pdump_common.o \
 	bridged_support.o \
 	bridged_pvr_bridge.o \

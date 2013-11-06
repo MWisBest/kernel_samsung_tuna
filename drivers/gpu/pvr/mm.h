@@ -39,7 +39,6 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
 */ /**************************************************************************/
 #ifndef __IMG_LINUX_MM_H__
 #define __IMG_LINUX_MM_H__
@@ -167,7 +166,9 @@ struct _LinuxMemArea {
             /* Note the memory this represents _is_ implicitly
              * page aligned _and_ so is its size */
             IMG_CPU_PHYADDR *pCPUPhysAddrs;
-            struct ion_handle *psIONHandle[2];
+            IMG_UINT32 ui32NumValidPlanes;
+            struct ion_handle *psIONHandle[PVRSRV_MAX_NUMBER_OF_MM_BUFFER_PLANES];
+            IMG_UINT32 planeOffsets[PVRSRV_MAX_NUMBER_OF_MM_BUFFER_PLANES];
         }sIONTilerAlloc;
         struct _sSubAlloc
         {
@@ -573,6 +574,10 @@ NewIONLinuxMemArea(IMG_UINT32 ui32Bytes, IMG_UINT32 ui32AreaFlags,
  ******************************************************************************/
 IMG_VOID FreeIONLinuxMemArea(LinuxMemArea *psLinuxMemArea);
 
+IMG_INT32
+GetIONLinuxMemAreaInfo(LinuxMemArea *psLinuxMemArea, IMG_UINT32* ui32AddressOffsets,
+                IMG_UINT32* ui32NumAddr);
+
 #else /* defined(CONFIG_ION_OMAP) */
 
 static inline LinuxMemArea *
@@ -591,6 +596,17 @@ static inline IMG_VOID FreeIONLinuxMemArea(LinuxMemArea *psLinuxMemArea)
 {
     PVR_UNREFERENCED_PARAMETER(psLinuxMemArea);
     BUG();
+}
+
+static inline IMG_INT32
+GetIONLinuxMemAreaInfo(LinuxMemArea *psLinuxMemArea, IMG_UINT32* ui32AddressOffsets,
+                IMG_UINT32* ui32NumAddr);
+{
+    PVR_UNREFERENCED_PARAMETER(psLinuxMemArea);
+    PVR_UNREFERENCED_PARAMETER(ui32AddressOffsets);
+    PVR_UNREFERENCED_PARAMETER(ui32NumAddr);
+    BUG();
+    return -1;
 }
 
 #endif /* defined(CONFIG_ION_OMAP) */
