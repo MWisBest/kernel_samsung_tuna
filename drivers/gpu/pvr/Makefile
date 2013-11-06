@@ -114,10 +114,5 @@ pvrsrvkm-$(CONFIG_ION_OMAP) += ion.o
 
 pvrsrvkm-$(CONFIG_PVR_TTRACE) += ttrace.o
 
-omaplfb-y := \
-	omaplfb/omaplfb_displayclass.o \
-	omaplfb/omaplfb_linux.o
-
 obj-$(CONFIG_PVR_SGX) += pvrsrvkm.o
-obj-$(CONFIG_PVR_SGX) += omaplfb.o
 obj-$(CONFIG_PVR_PDUMP) += dbgdrv/
