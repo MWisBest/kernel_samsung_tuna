@@ -599,12 +599,9 @@ void dsscomp_gralloc_init(struct dsscomp_dev *cdev_)
 			}
 			slots[i].slot = slot;
 			slots[i].phys = phys;
-/*			slots[i].size = TILER1D_SLOT_SIZE >> PAGE_SHIFT;
-			slots[i].page_map = kmalloc(sizeof(*slots[i].page_map) *
-						slots[i].size, GFP_KERNEL);*/
 			slots[i].size = tiler1d_slot_size(cdev_) >> PAGE_SHIFT;
-			slots[i].page_map = vmalloc(sizeof(*slots[i].page_map) *
-						slots[i].size);
+			slots[i].page_map = kmalloc(sizeof(*slots[i].page_map) *
+						slots[i].size, GFP_KERNEL);
 			if (!slots[i].page_map) {
 				pr_err("could not allocate page_map");
 				tiler_free_block_area(slot);
