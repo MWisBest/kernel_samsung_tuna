@@ -293,6 +293,22 @@ obj-$(CONFIG_MACH_OMAP4_PANDA)		+= board-omap4panda.o \
 					   board-44xx-identity.o \
 					   omap4_apps_brd_id.o \
 					   omap_phy_internal.o
+obj-$(CONFIG_MACH_TUNA)			+= board-tuna.o \
+					   hsmmc.o \
+					   omap_phy_internal.o
+obj-$(CONFIG_MACH_TUNA)			+= board-tuna-display.o
+obj-$(CONFIG_MACH_TUNA)			+= board-tuna-input.o
+obj-$(CONFIG_MACH_TUNA)			+= board-tuna-jack.o
+obj-$(CONFIG_MACH_TUNA)			+= board-tuna-nfc.o
+obj-$(CONFIG_MACH_TUNA)			+= board-tuna-power.o
+obj-$(CONFIG_MACH_TUNA)			+= board-tuna-sensors.o
+obj-$(CONFIG_MACH_TUNA)			+= board-tuna-vibrator.o
+obj-$(CONFIG_MACH_TUNA)			+= board-tuna-wifi.o
+obj-$(CONFIG_MACH_TUNA)			+= board-tuna-bluetooth.o \
+					   board-tuna-emif.o
+obj-$(CONFIG_MACH_TUNA)			+= board-tuna-connector.o
+obj-$(CONFIG_MACH_TUNA)			+= board-tuna-pogo.o
+obj-$(CONFIG_MACH_TUNA)			+= board-tuna-usbhost.o
 
 obj-$(CONFIG_MACH_OMAP3517EVM)		+= board-am3517evm.o \
 					   omap_phy_internal.o \
@@ -333,6 +349,7 @@ obj-$(CONFIG_OMAP_REMOTE_PROC)		+= remoteproc.o
 
 obj-$(CONFIG_OMAP_HSI_DEVICE)		+= omap_hsi.o
 obj-$(CONFIG_ION_OMAP)			+= omap4_ion.o
+obj-$(CONFIG_SEC_MODEM)			+= board-tuna-modems.o
 obj-$(CONFIG_ARCH_OMAP4)		+= omap_dmm.o
 obj-$(CONFIG_OMAP_FIQ_DEBUGGER)		+= omap_fiq_debugger.o
 

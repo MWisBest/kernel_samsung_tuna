@@ -100,7 +100,6 @@ static struct omap_device_pm_latency omap_emif_latency[] = {
 static u32 emif_errata;
 #define is_emif_erratum(erratum) (emif_errata & EMIF_ERRATUM_##erratum)
 
-
 static void do_cancel_out(u32 *num, u32 *den, u32 factor)
 {
 	while (1) {

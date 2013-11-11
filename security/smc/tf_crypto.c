@@ -751,7 +751,6 @@ int tf_crypto_try_shortcuted_update(struct tf_connection *connection,
 
 			/* Decrement CUS context use count */
 			cus->use_count--;
-
 		} else {
 			return -1;
 		}

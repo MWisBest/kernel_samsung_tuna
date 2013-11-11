@@ -70,6 +70,8 @@
 #define OMAP4_TOUCH_IRQ_2		36
 #define HDMI_GPIO_CT_CP_HPD		60 /* HPD mode enable/disable */
 #define HDMI_GPIO_HPD			63  /* Hot plug pin for HDMI */
+#define OMAP4_SFH7741_SENSOR_OUTPUT_GPIO	184
+#define OMAP4_SFH7741_ENABLE_GPIO		188
 #define HDMI_GPIO_LS_OE 41 /* Level shifter for HDMI */
 #define LCD_BL_GPIO		27	/* LCD Backlight GPIO */
 /* PWM2 and TOGGLE3 register offsets */
@@ -83,9 +85,6 @@
 #define GPIO_WIFI_IRQ		53
 #define OMAP_HDMI_HPD_ADDR	0x4A100098
 #define OMAP_HDMI_PULLTYPE_MASK	0x00000010
-
-#define OMAP4_SFH7741_SENSOR_OUTPUT_GPIO	184
-#define OMAP4_SFH7741_ENABLE_GPIO		188
 
 static const int sdp4430_keymap[] = {
 	KEY(0, 0, KEY_E),
@@ -895,8 +894,6 @@ static void sdp4430_hdmi_mux_init(void)
 		pr_err("%s:Cannot request HDMI GPIOs %x \n", __func__, status);
 }
 
-
-
 static struct nokia_dsi_panel_data dsi1_panel = {
 		.name		= "taal",
 		.reset_gpio	= 102,
@@ -965,6 +962,10 @@ static struct omap_dss_device sdp4430_lcd_device = {
 	.skip_init = false,
 };
 
+static struct omap_dss_hdmi_data sdp4430_hdmi_data = {
+	.hpd_gpio = HDMI_GPIO_HPD,
+};
+
 static struct omap_dss_device sdp4430_hdmi_device = {
 	.name = "hdmi",
 	.driver_name = "hdmi_panel",
@@ -980,6 +981,7 @@ static struct omap_dss_device sdp4430_hdmi_device = {
 	},
 	.hpd_gpio = HDMI_GPIO_HPD,
 	.channel = OMAP_DSS_CHANNEL_DIGIT,
+	.data = &sdp4430_hdmi_data,
 };
 
 static struct omap_dss_device *sdp4430_dss_devices[] = {

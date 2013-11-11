@@ -128,9 +128,17 @@ qh_refresh (struct ehci_hcd *ehci, struct ehci_qh *qh)
 	else {
 		qtd = list_entry (qh->qtd_list.next,
 				struct ehci_qtd, qtd_list);
-		/* first qtd may already be partially processed */
-		if (cpu_to_hc32(ehci, qtd->qtd_dma) == qh->hw->hw_current)
+		/*
+		 * first qtd may already be partially processed.
+		 * If we come here during unlink, the QH overlay region
+		 * might have reference to the just unlinked qtd. The
+		 * qtd is updated in qh_completions(). Update the QH
+		 * overlay here.
+		 */
+		if (cpu_to_hc32(ehci, qtd->qtd_dma) == qh->hw->hw_current) {
+			qh->hw->hw_qtd_next = qtd->hw_next;
 			qtd = NULL;
+		}
 	}
 
 	if (qtd)
@@ -507,11 +515,6 @@ qh_completions (struct ehci_hcd *ehci, struct ehci_qh *qh)
 			last = list_entry (qtd->qtd_list.prev,
 					struct ehci_qtd, qtd_list);
 			last->hw_next = qtd->hw_next;
-			/*
-			 * Make sure the new hw_next pointer is visible
-			 * to the HW before freeing the old one
-			 */
-			wmb();
 		}
 
 		/* remove qtd; it's recycled after possible urb completion */

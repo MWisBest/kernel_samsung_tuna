@@ -163,6 +163,9 @@ int dsscomp_gralloc_queue_ioctl(struct dsscomp_setup_dispc_data *d)
 	s32 ret;
 	u32 i;
 
+	if (d->num_ovls > MAX_OVERLAYS)
+		return -EINVAL;
+
 	/* convert virtual addresses to physical and get tiler pa infos */
 	for (i = 0; i < d->num_ovls; i++) {
 		struct dss2_ovl_info *oi = d->ovls + i;
@@ -724,7 +727,11 @@ static void dsscomp_early_suspend_cb(void *data, int status)
 	wake_up(&early_suspend_wq);
 }
 
+#if 1 /* HACK */
+void dsscomp_early_suspend(struct early_suspend *h)
+#else
 static void dsscomp_early_suspend(struct early_suspend *h)
+#endif
 {
 	struct dsscomp_setup_dispc_data d = {
 		.num_mgrs = 0,

@@ -709,7 +709,7 @@ void hsi_clocks_disable_channel(struct device *dev, u8 channel_number,
 	}
 
 	if (hsi_is_hst_controller_busy(hsi_ctrl))
-		dev_dbg(dev, "Disabling clocks with HST FSM not IDLE !\n");
+		dev_warn(dev, "Disabling clocks with HST FSM not IDLE !\n");
 
 #ifdef CONFIG_OMAP4_DPLL_CASCADING
 	/* Allow Fclk to change */
@@ -980,6 +980,7 @@ static int hsi_pm_prepare(struct device *dev)
 {
 	struct platform_device *pd = to_platform_device(dev);
 	struct hsi_dev *hsi_ctrl = platform_get_drvdata(pd);
+	unsigned int i;
 
 	dev_dbg(dev, "%s\n", __func__);
 
@@ -1073,6 +1074,8 @@ static int hsi_pm_resume(struct device *dev)
 *
 *
 */
+#define HSI_HSR_MODE_FRAME	0x2
+#define HSI_PORT1	0x1
 int hsi_runtime_resume(struct device *dev)
 {
 	struct platform_device *pd = to_platform_device(dev);

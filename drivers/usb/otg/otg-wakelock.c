@@ -91,6 +91,7 @@ static void otgwl_handle_event(unsigned long event)
 	case USB_EVENT_VBUS:
 	case USB_EVENT_ID:
 	case USB_EVENT_ENUMERATED:
+	case USB_EVENT_ID:
 		otgwl_hold(&vbus_lock);
 		break;
 

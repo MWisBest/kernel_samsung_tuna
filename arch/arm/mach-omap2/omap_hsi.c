@@ -76,6 +76,8 @@ static struct hsi_port_ctx omap_hsi_port_ctx[] = {
 	       .hsr.counters = HSI_COUNTERS_FT_DEFAULT |
 			       HSI_COUNTERS_TB_DEFAULT |
 			       HSI_COUNTERS_FB_DEFAULT,
+	       .cawake_padconf_name = "usbb1_ulpitll_clk.hsi1_cawake",
+	       .cawake_padconf_hsi_mode = OMAP_MUX_MODE1,
 	       },
 };
 
@@ -120,6 +122,19 @@ static u32 omap_hsi_configure_errata(void)
 
 	if (cpu_is_omap44xx())
 		SET_HSI_ERRATA(errata, HSI_ERRATUM_i702_PM_HSI_SWAKEUP);
+
+	return errata;
+}
+
+static u32 omap_hsi_configure_errata(void)
+{
+	u32 errata = 0;
+
+	if (cpu_is_omap44xx()) {
+		SET_HSI_ERRATA(errata, HSI_ERRATUM_i696_SW_RESET_FSM_STUCK);
+		SET_HSI_ERRATA(errata, HSI_ERRATUM_ixxx_3WIRES_NO_SWAKEUP);
+		SET_HSI_ERRATA(errata, HSI_ERRATUM_i702_PM_HSI_SWAKEUP);
+	}
 
 	return errata;
 }
@@ -188,6 +203,24 @@ bool omap_hsi_is_io_wakeup_from_hsi(int *hsi_port)
 	}
 
 	return false;
+}
+
+/**
+* omap_hsi_io_wakeup_check - Check if IO wakeup is from HSI and schedule HSI
+*			     processing tasklet
+*
+* Return value : * 0 if HSI tasklet scheduled.
+*		 * negative value else.
+*/
+int omap_hsi_io_wakeup_check(void)
+{
+	int hsi_port, ret = -1;
+
+	/* Modem HSI wakeup */
+	if (omap_hsi_is_io_wakeup_from_hsi(&hsi_port))
+		ret = omap_hsi_wakeup(hsi_port);
+
+	return ret;
 }
 
 /**
@@ -293,6 +326,7 @@ static int __init omap_hsi_register(struct omap_hwmod *oh, void *user)
 				      ARRAY_SIZE(hsi_port1_pads));
 
 	hsi_od = omap_device_build(OMAP_HSI_PLATFORM_DEVICE_DRIVER_NAME, 0, oh,
+
 			       pdata, sizeof(*pdata), omap_hsi_latency,
 			       ARRAY_SIZE(omap_hsi_latency), false);
 	WARN(IS_ERR(hsi_od), "Can't build omap_device for %s:%s.\n",

@@ -294,6 +294,7 @@ done_calib:
 		u_volt_safe += u_volt_margin;
 	}
 	/* just warn, dont clamp down on voltage */
+
 	if (u_volt_safe > volt_data->volt_nominal) {
 		pr_warning("%s: %s Vsafe %ld > Vnom %d. %ld[%d] margin on"
 			"vnom %d curr_v=%ld\n", __func__, voltdm->name,

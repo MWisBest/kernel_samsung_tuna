@@ -1070,7 +1070,7 @@ static struct omap_hwmod_class omap44xx_ctrl_module_hwmod_class = {
 static struct omap_hwmod omap44xx_ctrl_module_core_hwmod;
 static struct omap_hwmod_irq_info omap44xx_ctrl_module_core_irqs[] = {
 	{ .name = "sec_evts", .irq = 8 + OMAP44XX_IRQ_GIC_START },
-	{ .name = "thermal_alert", .irq = 126 + OMAP44XX_IRQ_GIC_START },
+	{ .name = "thermal_alert", .irq = 127 + OMAP44XX_IRQ_GIC_START },
 };
 
 static struct omap_hwmod_addr_space omap44xx_ctrl_module_core_addrs[] = {
@@ -1117,7 +1117,7 @@ static struct omap_hwmod_class omap44xx_thermal_sensor_hwmod_class = {
 };
 
 static struct omap_hwmod_irq_info omap44xx_thermal_sensor_irqs[] = {
-	{ .name = "thermal_alert", .irq = 126 + OMAP44XX_IRQ_GIC_START },
+	{ .name = "thermal_alert", .irq = 127 + OMAP44XX_IRQ_GIC_START },
 };
 
 static struct omap_hwmod_addr_space omap44xx_thermal_sensor_addrs[] = {
@@ -5668,7 +5668,7 @@ static struct omap_hwmod_ocp_if *omap44xx_uart3_slaves[] = {
 static struct omap_hwmod omap44xx_uart3_hwmod = {
 	.name		= "uart3",
 	.class		= &omap44xx_uart_hwmod_class,
-	.flags		= (HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET),
+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET),
 	.mpu_irqs	= omap44xx_uart3_irqs,
 	.mpu_irqs_cnt	= ARRAY_SIZE(omap44xx_uart3_irqs),
 	.sdma_reqs	= omap44xx_uart3_sdma_reqs,
@@ -6036,7 +6036,7 @@ static struct omap_hwmod_addr_space omap44xx_usbhs_ohci_addrs[] = {
 		.name		= "ohci",
 		.pa_start	= 0x4A064800,
 		.pa_end		= 0x4A064BFF,
-		.flags		= ADDR_MAP_ON_INIT
+		.flags		= ADDR_MAP_ON_INIT | ADDR_TYPE_RT
 	}
 };
 

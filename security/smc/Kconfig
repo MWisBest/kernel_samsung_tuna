@@ -16,7 +16,7 @@ config SECURITY_MIDDLEWARE_COMPONENT
 	depends on ARCH_OMAP3 || ARCH_OMAP4
 	default n
 	select TF_ZEBRA
-        select CRYPTO_SHA1 if ARCH_OMAP4
+	select CRYPTO_SHA1 if ARCH_OMAP4
 	help
 	  This option adds kernel support for communication with the SMC
 	  Protected Application.

@@ -492,7 +492,6 @@ inline struct page *tf_l2_page_descriptor_to_page(u32 l2_page_descriptor)
 	return pte_page(l2_page_descriptor & L2_DESCRIPTOR_ADDR_MASK);
 }
 
-
 /*
  * Returns the L1 descriptor for the 1KB-aligned coarse page table. The address
  * must be in the kernel address space.

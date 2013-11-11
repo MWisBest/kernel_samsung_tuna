@@ -688,6 +688,10 @@ static void omap4_panda_hdmi_mux_init(void)
 		pr_err("%s: Cannot request HDMI GPIOs %x \n", __func__, status);
 }
 
+static struct omap_dss_hdmi_data omap4_panda_hdmi_data = {
+	.hpd_gpio = HDMI_GPIO_HPD,
+};
+
 static struct omap_dss_device  omap4_panda_hdmi_device = {
 	.name = "hdmi",
 	.driver_name = "hdmi_panel",
@@ -703,6 +707,7 @@ static struct omap_dss_device  omap4_panda_hdmi_device = {
 	},
 	.hpd_gpio = HDMI_GPIO_HPD,
 	.channel = OMAP_DSS_CHANNEL_DIGIT,
+	.data = &omap4_panda_hdmi_data,
 };
 
 static struct omap_dss_device *omap4_panda_dss_devices[] = {
@@ -743,8 +748,6 @@ void omap4_panda_display_init(void)
 
 	omap4_panda_hdmi_mux_init();
 	omap_display_init(&omap4_panda_dss_data);
-}
-
 
 #define PANDA_FB_RAM_SIZE                SZ_16M /* 1920×1080*4 * 2 */
 static struct omapfb_platform_data panda_fb_pdata = {
